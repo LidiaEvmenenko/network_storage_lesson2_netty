@@ -3,10 +3,14 @@ package ru.geekbrains;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.ReferenceCountUtil;
+
+import java.nio.charset.StandardCharsets;
 
 public class Server
 {
@@ -35,7 +39,7 @@ public class Server
                         protected void initChannel(NioSocketChannel ch) {
                             ch.pipeline().addLast(
                                     new ChannelInboundHandlerAdapter() {
-
+                                        private StringBuilder sb = new StringBuilder("ECHO: ");
                                         @Override
                                         public void channelRegistered(ChannelHandlerContext ctx) {
                                             System.out.println("channelRegistered");
@@ -59,13 +63,19 @@ public class Server
                                         @Override
                                         public void channelRead(ChannelHandlerContext ctx, Object msg) {
                                             System.out.println("channelRead");
-                                            final ByteBuf m = (ByteBuf) msg;
-                                            for (int i = m.readerIndex(); i < m.writerIndex(); i++) {
-                                                System.out.print((char) m.getByte(i)); //читаем данные из буфера так, чтобы не сдвинуть индексы
+                                            ByteBuf buf = (ByteBuf) msg;
+                                            byte[] bytes = new byte[buf.readableBytes()];
+                                            buf.readBytes(bytes);
+                                            String s = new String(bytes);
+                                            if (bytes[0] == 13 && bytes[1] == 10){
+                                                buf = Unpooled.wrappedBuffer(sb.toString().getBytes(StandardCharsets.UTF_8));
+                                                ctx.writeAndFlush(buf);
+                                                sb = new StringBuilder("ECHO: ");
+                                            }else {
+                                                sb.append(" ").append(s);
+                                                ReferenceCountUtil.release(msg);
                                             }
                                             System.out.flush();
-                                            System.out.println();
-                                            ctx.writeAndFlush(msg); //Отправка сообщения обратно клиенту
                                         }
 
                                         @Override
