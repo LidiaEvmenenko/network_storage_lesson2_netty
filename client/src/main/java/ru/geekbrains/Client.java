@@ -12,6 +12,7 @@ import io.netty.util.ReferenceCountUtil;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Scanner;
 
 public class Client
 {
@@ -35,13 +36,12 @@ public class Client
                                         @Override
                                         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
                                             System.out.println("channelRead");
-                                            final ByteBuf m = (ByteBuf) msg;
-                                            while (m.isReadable()) {
-                                                System.out.print((char) m.readByte()); //Считываем сообщение со сдвигом индексов
-                                            }
-
+                                            final ByteBuf buf = (ByteBuf) msg;
+                                            byte[] bytes = new byte[buf.readableBytes()];
+                                            buf.readBytes(bytes);
+                                            String s = new String(bytes);
+                                            System.out.println(s);
                                             System.out.flush();
-                                            System.out.println();
                                             ReferenceCountUtil.release(msg);
                                         }
                                     }
@@ -52,14 +52,24 @@ public class Client
             System.out.println("Client started");
 
             Channel channel = bootstrap.connect("localhost", 9000).sync().channel();
-
-            while (channel.isActive()) {
-                ByteBuf msg = Unpooled.wrappedBuffer(("Hello world! " + new Date()).getBytes(StandardCharsets.UTF_8));
+            Scanner sc = new Scanner(System.in);
+            ByteBuf msg;
+            byte[] b = new byte[2];
+            b[0] = 13;
+            b[1] = 10;
+            while (true) {
+                String in = sc.next();
+                if (in.equals("\\n")){
+                    msg = Unpooled.wrappedBuffer(b);
+                }else {
+                    msg = Unpooled.wrappedBuffer(in.getBytes(StandardCharsets.UTF_8));
+                }
                 channel.write(msg);
                 channel.flush();
-                Thread.sleep(3000);
+                if (in.equals("0")) {
+                    break;
+                }
             }
-
             channel.closeFuture().sync();
         } catch (InterruptedException e) {
             e.printStackTrace();
